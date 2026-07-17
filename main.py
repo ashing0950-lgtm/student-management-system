@@ -1,19 +1,26 @@
 """
 main.py
-Command-line interface for the Student Management System.
-Run with:  python main.py
+Hybrid Command-line interface & Web Server wrapper for Student Management System.
 """
 
 import sys
+import os
 from database import initialize_database  # database.py ke function ke sath map kiya
 import models
 from models import DuplicateEmailError, NotFoundError, AuthError
+from flask import Flask
 
 # Global Active Session Scope Boundaries
 current_user = None  
 active_university_id = None
 active_college_id = None
 
+# ---------- WEB SERVER INSTANCE FOR CLOUD DEPLOYMENT ----------
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "Student Management System Cloud Instance is Active!"
 
 def pause():
     input("\nPress Enter to continue...")
@@ -65,7 +72,6 @@ def login_screen():
         user = models.verify_login(username, password)
         if user:
             print(f"\n✔ Welcome, {user['username']} ({user['role'].upper()}).")
-            # Enforce dynamic data isolation context bounds on system session
             active_university_id = user.get("university_id")
             active_college_id = user.get("college_id")
             return user
@@ -103,7 +109,6 @@ def action_manage_users():
     choice = input("Select an option: ").strip()
 
     if choice == "1":
-        # System filters lists by active tenancy boundary defaults
         users = models.get_all_users(university_id=active_university_id)
         print(f"\n{'ID':<4}{'Username':<20}{'Role':<10}{'Created on':<20}")
         print("-" * 54)
@@ -143,8 +148,6 @@ def action_logout():
         raise LogoutSignal()
 
 
-# ---------- NEW TENANCY CONTROL LAYER ----------
-
 def action_manage_tenants():
     print_header("Tenancy Configuration Panel")
     if current_user["role"] not in ["superadmin", "admin"]:
@@ -182,15 +185,11 @@ def action_manage_tenants():
             print(f"\n✘ Error: {e}")
 
 
-# ---------- NEW RAW TEXT BULK IMPORT FEATURE ----------
-
 def action_bulk_text_import():
     print_header("Raw Text Area Bulk Student Import")
-    
     uni_id = active_university_id
     col_id = active_college_id
 
-    # If the operator is not bound to a specific tenant, ask where to put data
     if not uni_id:
         unis = models.get_all_universities()
         if not unis:
@@ -241,7 +240,6 @@ def action_bulk_text_import():
 
     parsed_records = []
     for idx, row in enumerate(raw_lines):
-        # Support CSV commas or Tab characters safely
         tokens = [t.strip() for t in row.replace('\t', ',').split(',')]
         if len(tokens) >= 3:
             parsed_records.append({
@@ -265,8 +263,6 @@ def action_bulk_text_import():
         for rec, err in skipped[:3]:
             print(f"    Failed Profile email: {rec['email']} | Reason: {err}")
 
-
-# ---------- UPGRADED CORE MENU ACTIONS ----------
 
 def action_view_student_details():
     print_header("Student Details")
@@ -304,7 +300,6 @@ def action_add_student():
     uni_id = active_university_id
     col_id = active_college_id
     
-    # Defaults checking logic fallback
     if not uni_id or not col_id:
         print("\n✘ Error: Standalone admins must utilize Option 17 (Bulk Text Import Area)")
         print("or select structural keys manually inside data access fields.")
@@ -326,7 +321,6 @@ def action_add_student():
 
 def action_list_students():
     print_header("All Students (Tenancy Context Enforced)")
-    # Enforces boundary view checks dynamically
     students = models.get_all_students(university_id=active_university_id, college_id=active_college_id)
     print_students(students)
 
@@ -525,10 +519,8 @@ def run_session():
 
 def main():
     global current_user
-    # Runs base model migrations automatically on start
     initialize_database()
 
-    # Provision a local master user execution bypass for fresh environment startups
     try:
         models.create_user("admin", "admin123", "superadmin")
     except DuplicateEmailError:
@@ -547,18 +539,14 @@ def main():
             continue
 
 
+# ---------- HYBRID EXECUTION ENVIRONMENT CHECK ----------
 if __name__ == "__main__":
-    main()
-
-import os
-from flask import Flask
-
-app = Flask(__name__)
-
-@app.route('/')
-def home():
-    return "Student Management System Cloud Instance is Active!"
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8000))
-    app.run(host="0.0.0.0", port=port)
+    # Agar ye application Render Cloud Server par chal rahi hai (jahan PORT defined hota hai)
+    if "PORT" in os.environ:
+        print("--> Cloud Environment Detected. Starting Web Server Wrapper...")
+        port = int(os.environ.get("PORT", 8000))
+        app.run(host="0.0.0.0", port=port)
+    else:
+        # Agar ye aapke local laptop ke terminal par chal rahi hai
+        print("--> Local Terminal Environment Detected. Starting CLI...")
+        main()
