@@ -1,0 +1,3 @@
+StudentID,FirstName,LastName,DateOfBirth,Email,Phone,Address,Department,EnrollmentYear,CGPA
+BTech101,Ashish,Singh,2004-05-15,ashish.test@bbdu.ac.in,9876543210,Lucknow,CSE-AI,2023,9.1
+BTech102,Bantu,Kumar,2004-08-20,bantu.test@bbdu.ac.in,9876543211,Lucknow,CSE-AI,2023,8.8
