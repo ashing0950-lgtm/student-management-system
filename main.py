@@ -8,7 +8,7 @@ import os
 from database import initialize_database  # database.py ke function ke sath map kiya
 import models
 from models import DuplicateEmailError, NotFoundError, AuthError
-from flask import Flask
+from flask import Flask, render_template_string
 
 # Global Active Session Scope Boundaries
 current_user = None  
@@ -18,9 +18,71 @@ active_college_id = None
 # ---------- WEB SERVER INSTANCE FOR CLOUD DEPLOYMENT ----------
 app = Flask(__name__)
 
+# Ek clean aur modern HTML dashboard template browser view ke liye
+HTML_TEMPLATE = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Student Management System</title>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 40px; background-color: #f5f7fb; color: #333; }
+        .container { max-width: 950px; margin: auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        h1 { color: #2c3e50; border-bottom: 2px solid #ecf0f1; padding-bottom: 10px; margin-bottom: 5px; }
+        .status-badge { background-color: #2ecc71; color: white; padding: 6px 14px; border-radius: 20px; font-size: 13px; display: inline-block; margin-bottom: 25px; font-weight: bold; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #e0e0e0; }
+        th { background-color: #f8f9fa; color: #2c3e50; font-weight: 600; text-transform: uppercase; font-size: 13px; }
+        tr:hover { background-color: #fdfdfd; }
+        .no-data { text-align: center; color: #7f8c8d; padding: 40px; font-style: italic; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎓 Student Management System Dashboard</h1>
+        <div class="status-badge">● Live Cloud Sync Active</div>
+        
+        <h3>Registered Students (Global Directory View)</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Internal ID</th>
+                    <th>Full Name</th>
+                    <th>Email Address</th>
+                    <th>Department</th>
+                    <th>CGPA</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in students %}
+                <tr>
+                    <td><strong>{{ s.student_id }}</strong></td>
+                    <td>{{ s.first_name }} {{ s.last_name }}</td>
+                    <td>{{ s.email }}</td>
+                    <td>{{ s.department or '-' }}</td>
+                    <td>{{ s.cgpa if s.cgpa is not none else '-' }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="no-data">No student records found in the system registry. Connect your local CLI node or import rows via Option 17 to view data here!</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>
+"""
+
 @app.route('/')
 def home():
-    return "Student Management System Cloud Instance is Active!"
+    # Jaise hi cloud link open hogi, ye direct database se data nikal kar template me bhejega
+    try:
+        # Purane records live loading ke liye helper database method call
+        all_students = models.get_all_students()
+    except Exception:
+        all_students = []
+    return render_template_string(HTML_TEMPLATE, students=all_students)
+
 
 def pause():
     input("\nPress Enter to continue...")
@@ -541,12 +603,12 @@ def main():
 
 # ---------- HYBRID EXECUTION ENVIRONMENT CHECK ----------
 if __name__ == "__main__":
-    # Agar ye application Render Cloud Server par chal rahi hai (jahan PORT defined hota hai)
+    # Agar application Render Cloud Server par chal rahi hai
     if "PORT" in os.environ:
-        print("--> Cloud Environment Detected. Starting Web Server Wrapper...")
+        print("--> Cloud Environment Detected. Starting Dynamic Web Dashboard...")
         port = int(os.environ.get("PORT", 8000))
         app.run(host="0.0.0.0", port=port)
     else:
-        # Agar ye aapke local laptop ke terminal par chal rahi hai
+        # Agar local computer par chala rahe ho
         print("--> Local Terminal Environment Detected. Starting CLI...")
         main()
