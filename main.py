@@ -47,7 +47,7 @@ HTML_LAYOUT = """
         th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e0e0e0; }
         th { background-color: #f8f9fa; color: #2c3e50; }
         .alert { padding: 12px; background-color: #d4edda; color: #155724; border-radius: 5px; margin-bottom: 20px; border: 1px solid #c3e6cb; }
-        .alert-danger { background-color: #f8d7da; color: #721c24; border-collapse: #f5c6cb; }
+        .alert-danger { background-color: #f8d7da; color: #721c24; border-radius: 5px; margin-bottom: 20px; border: 1px solid #f5c6cb; }
         .search-box { display: flex; gap: 10px; margin-bottom: 20px; }
         .search-box input { flex: 1; }
         .search-box .btn { width: auto; }
@@ -178,7 +178,7 @@ HTML_LAYOUT = """
 </html>
 """
 
-@app.route('/')
+@app.route('/', methods=['GET'])
 def home():
     search_query = request.args.get('search', '').strip()
     try:
@@ -190,7 +190,6 @@ def home():
         students = []
     return render_template_string(HTML_LAYOUT, students=students, search_query=search_query)
 
-# FIX: Changed 'method' to 'methods'
 @app.route('/add-student', methods=['POST'])
 def web_add_student():
     first = request.form.get('first_name')
@@ -216,16 +215,15 @@ def web_add_student():
         
     return redirect(url_for('home'))
 
-@app.route('/delete-student/<int:student_id>')
+@app.route('/delete-student/<student_id>', methods=['GET', 'POST'])
 def web_delete_student(student_id):
     try:
-        models.delete_student(student_id)
+        models.delete_student(int(student_id))
         flash(f"✔ Student ID {student_id} successfully purged from database.", "success")
     except Exception as e:
         flash(f"✘ Failed to delete record: {str(e)}", "error")
     return redirect(url_for('home'))
 
-# FIX: Changed 'method' to 'methods'
 @app.route('/add-tenant', methods=['POST'])
 def web_add_tenant():
     t_type = request.form.get('tenant_type')
