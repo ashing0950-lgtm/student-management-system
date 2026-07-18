@@ -1,6 +1,6 @@
 """
 main.py
-Full Institutional Management Control Interface with Structured Hierarchies.
+Simple and Clean Student Management System.
 """
 
 import sys
@@ -11,19 +11,17 @@ import models
 from models import DuplicateEmailError, NotFoundError, AuthError
 from flask import Flask, render_template_string, request, redirect, url_for, flash
 
-# ---------- AUTOMATIC DATABASE STRUCTURE VALIDATION & PATCH ----------
+# ---------- DATABASE STRUCTURE VALIDATION ----------
 def patch_and_seed_database():
-    """Ensures relational tables and relational hierarchy are strictly active on production storage."""
+    """Ensures database structure is active on production storage."""
     try:
         db_path = "school_db.sqlite" if os.path.exists("school_db.sqlite") else "school.db"
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
         
-        # 1. Base Multi-tenant structural tables check
         cursor.execute("CREATE TABLE IF NOT EXISTS universities (university_id INTEGER PRIMARY KEY AUTOINCREMENT, university_code TEXT UNIQUE, university_name TEXT);")
         cursor.execute("CREATE TABLE IF NOT EXISTS colleges (college_id INTEGER PRIMARY KEY AUTOINCREMENT, university_id INTEGER, college_code TEXT UNIQUE, college_name TEXT, FOREIGN KEY(university_id) REFERENCES universities(university_id));")
         
-        # 2. Synchronize columns in users/students tables if missed in legacy setup
         cursor.execute("PRAGMA table_info(students);")
         student_cols = [c[1] for c in cursor.fetchall()]
         if "university_id" not in student_cols:
@@ -31,14 +29,6 @@ def patch_and_seed_database():
         if "college_id" not in student_cols:
             cursor.execute("ALTER TABLE students ADD COLUMN college_id INTEGER DEFAULT 1;")
             
-        cursor.execute("PRAGMA table_info(users);")
-        user_cols = [c[1] for c in cursor.fetchall()]
-        if "university_id" not in user_cols:
-            cursor.execute("ALTER TABLE users ADD COLUMN university_id INTEGER DEFAULT 1;")
-        if "college_id" not in user_cols:
-            cursor.execute("ALTER TABLE users ADD COLUMN college_id INTEGER DEFAULT 1;")
-            
-        # 3. Insert default placeholder rows if completely empty
         cursor.execute("SELECT count(*) FROM universities;")
         if cursor.fetchone()[0] == 0:
             cursor.execute("INSERT INTO universities (university_id, university_code, university_name) VALUES (1, 'BBDU', 'Babu Banarasi Das University');")
@@ -46,11 +36,9 @@ def patch_and_seed_database():
             
         conn.commit()
         conn.close()
-        print("[Database Multi-Tenant Engine] Hierarchy sync active.")
     except Exception as e:
         print(f"[Database Setup Warning] {str(e)}")
 
-# Safe bootstrap initialization execution
 initialize_database()
 patch_and_seed_database()
 try:
@@ -62,11 +50,12 @@ except DuplicateEmailError:
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "sms_super_secret_key_prod_123")
 
+# Yaha pure HTML layout ko clean karke simple Student Management System me badal diya hai
 HTML_LAYOUT = """
 <!DOCTYPE html>
 <html>
 <head>
-    <title>SMS Multi-Tenant Portal</title>
+    <title>Student Management System</title>
     <style>
         body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f6f9; color: #333; }
         .navbar { background-color: #2c3e50; color: white; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; }
@@ -99,8 +88,8 @@ HTML_LAYOUT = """
 <body>
 
     <div class="navbar">
-        <h2>🎓 Multi-Tenant Student Registry Engine</h2>
-        <div><strong>Node Control:</strong> Fully Hierarchical Structure</div>
+        <h2>🎓 Student Management System</h2>
+        <div>Dashboard Control</div>
     </div>
 
     <div class="main-container">
@@ -113,46 +102,46 @@ HTML_LAYOUT = """
               {% endif %}
             {% endwith %}
 
-            <div class="card">
-                <h3>🏢 1. Register University Parent Node</h3>
+            <div class="card" style="display: none;">
+                <h3>🏢 1. Register University</h3>
                 <form action="/add-university" method="POST">
                     <div class="form-group">
-                        <label>University Code (e.g., BBDU, AKTU)</label>
-                        <input type="text" name="uni_code" placeholder="Enter Unique Short Code" required>
+                        <label>University Code</label>
+                        <input type="text" name="uni_code" value="BBDU" required>
                     </div>
                     <div class="form-group">
                         <label>University Full Name</label>
-                        <input type="text" name="uni_name" placeholder="Enter Official Name" required>
+                        <input type="text" name="uni_name" value="Babu Banarasi Das University" required>
                     </div>
                     <button type="submit" class="btn btn-secondary">Onboard University</button>
                 </form>
             </div>
 
-            <div class="card">
-                <h3>🏫 2. Map College Under University</h3>
+            <div class="card" style="display: none;">
+                <h3>🏫 2. Map College / Department</h3>
                 <form action="/add-college" method="POST">
                     <div class="form-group">
                         <label>Select Parent University</label>
-                        <select name="parent_uni_id" required>
+                        <select name="parent_uni_id">
                             {% for u in universities %}
-                                <option value="{{ u.university_id }}">{{ u.university_name }} ({{ u.university_code }})</option>
+                                <option value="{{ u.university_id }}" selected>{{ u.university_name }}</option>
                             {% endfor %}
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>College Code (e.g., BBDEC, BBDNITM)</label>
-                        <input type="text" name="clg_code" placeholder="Enter College Branch Code" required>
+                        <label>College Code</label>
+                        <input type="text" name="clg_code" value="BBDU-CSE" required>
                     </div>
                     <div class="form-group">
                         <label>College Full Name</label>
-                        <input type="text" name="clg_name" placeholder="Enter College Campus Name" required>
+                        <input type="text" name="clg_name" value="School of Engineering (CSE Branch)" required>
                     </div>
-                    <button type="submit" class="btn btn-secondary" style="background-color: #9b59b6;">Map Branch Location</button>
+                    <button type="submit" class="btn btn-secondary">Map Branch</button>
                 </form>
             </div>
 
             <div class="card">
-                <h3>👤 3. Register Student Record</h3>
+                <h3>👤 Register Student Record</h3>
                 <form action="/add-student" method="POST">
                     <div class="form-group">
                         <label>First Name</label>
@@ -167,7 +156,7 @@ HTML_LAYOUT = """
                         <input type="email" name="email" required>
                     </div>
                     <div class="form-group">
-                        <label>Assigned Institutional Campus Branch</label>
+                        <label>Assigned Campus / Branch</label>
                         <select name="target_college_id" required>
                             {% for c in colleges %}
                                 <option value="{{ c.college_id }}">{{ c.university_name }} ➔ {{ c.college_name }}</option>
@@ -189,9 +178,9 @@ HTML_LAYOUT = """
 
         <div class="content-area">
             <div class="card">
-                <h3>🔍 Enterprise System Dynamic Registry Lookup</h3>
+                <h3>🔍 Student Registry Lookup</h3>
                 <form action="/" method="GET" class="search-box">
-                    <input type="text" name="search" value="{{ search_query }}" placeholder="Type student name, email, department, university or college...">
+                    <input type="text" name="search" value="{{ search_query }}" placeholder="Type student name, email, department...">
                     <button type="submit" class="btn">Execute Search</button>
                     {% if search_query %}
                         <a href="/" class="btn" style="background-color: #95a5a6;">Reset Filter</a>
@@ -200,13 +189,13 @@ HTML_LAYOUT = """
             </div>
 
             <div class="card">
-                <h3>📋 Active Structural Multi-Tenant Records Matrix</h3>
+                <h3>📋 Active Student Records Matrix</h3>
                 <table>
                     <thead>
                         <tr>
-                            <th>UID</th>
+                            <th>Roll ID</th>
                             <th>Student Demographics</th>
-                            <th>Mapped Institution Hierarchy</th>
+                            <th>Institution / Branch</th>
                             <th>Dept</th>
                             <th>CGPA</th>
                             <th>Action</th>
@@ -222,9 +211,9 @@ HTML_LAYOUT = """
                                 <small style="color: #555;">{{ s.email }}</small>
                             </td>
                             <td>
-                                <span class="inst-badge">🏛️ {{ s.university_name or 'Independent Node' }}</span>
+                                <span class="inst-badge">🏛️ {{ s.university_name or 'BBDU' }}</span>
                                 <br>
-                                <span class="clg-badge">📍 {{ s.college_name or 'Unmapped Branch' }}</span>
+                                <span class="clg-badge">📍 {{ s.college_name or 'CSE Branch' }}</span>
                             </td>
                             <td><code>{{ s.department or '-' }}</code></td>
                             <td><strong>{{ s.cgpa if s.cgpa is not none else 'N/A' }}</strong></td>
@@ -235,7 +224,7 @@ HTML_LAYOUT = """
                         {% else %}
                         <tr>
                             <td colspan="6" style="text-align: center; color: #7f8c8d; padding: 40px 10px;">
-                                No active cluster datasets match the requested index values. Add university nodes first!
+                                No student records found. Add student entries to populate the list!
                             </td>
                         </tr>
                         {% endfor %}
@@ -271,9 +260,9 @@ def web_add_university():
     name = request.form.get('uni_name').strip()
     try:
         models.add_university(code, name)
-        flash(f"✔ University Node [{code}] registered successfully in cluster matrix!", "success")
+        flash(f"✔ University Node registered successfully!", "success")
     except Exception as e:
-        flash(f"✘ Registration aborted: Entity configuration error. {str(e)}", "error")
+        flash(f"✘ Registration aborted. {str(e)}", "error")
     return redirect(url_for('home'))
 
 @app.route('/add-college', methods=['POST'])
@@ -283,9 +272,9 @@ def web_add_college():
     name = request.form.get('clg_name').strip()
     try:
         models.add_college(university_id=uni_id, college_code=code, college_name=name)
-        flash(f"✔ College Campus [{code}] mapped inside parent University successfully!", "success")
+        flash(f"✔ College Campus mapped successfully!", "success")
     except Exception as e:
-        flash(f"✘ Mapping aborted: Link execution mapping exception. {str(e)}", "error")
+        flash(f"✘ Mapping aborted. {str(e)}", "error")
     return redirect(url_for('home'))
 
 @app.route('/add-student', methods=['POST'])
@@ -298,7 +287,6 @@ def web_add_student():
     cgpa = request.form.get('cgpa')
     
     try:
-        # Dynamic Resolution: Automatically find parent university linked to this college
         conn = models.get_db_connection()
         res = conn.execute("SELECT university_id FROM colleges WHERE college_id = ?", (clg_id,)).fetchone()
         uni_id = res[0] if res else 1
