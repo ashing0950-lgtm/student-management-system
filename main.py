@@ -1,25 +1,59 @@
 """
 main.py
 Full Web Management Interface & CLI for Student Management System.
+Production ready deployment script with automatic database schema patcher.
 """
 
 import sys
 import os
+import sqlite3
 from database import initialize_database
 import models
 from models import DuplicateEmailError, NotFoundError, AuthError
 from flask import Flask, render_template_string, request, redirect, url_for, flash
 
-# Initialize Database on load
-initialize_database()
-try:
-    models.create_user("admin", "admin123", "superadmin")
-except DuplicateEmailError:
-    pass
+# ---------- AUTOMATIC DATABASE SCHEMA PATCHER ----------
+def patch_database_schema():
+    """Patches the existing sqlite database to ensure missing tenant columns exist in users table."""
+    try:
+        # Standard database path verification
+        db_path = "school_db.sqlite" if os.path.exists("school_db.sqlite") else "school.db"
+        if not os.path.exists(db_path):
+            return
+            
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        
+        # Check existing columns in users table
+        cursor.execute("PRAGMA table_info(users);")
+        columns = [col[1] for col in cursor.fetchall()]
+        
+        # Safe addition of multi-tenancy reference columns if missing
+        if "university_id" not in columns:
+            cursor.execute("ALTER TABLE users ADD COLUMN university_id INTEGER DEFAULT 1;")
+        if "college_id" not in columns:
+            cursor.execute("ALTER TABLE users ADD COLUMN college_id INTEGER DEFAULT 1;")
+            
+        conn.commit()
+        conn.close()
+        print("[Database Patch] Verification complete. Columns synchronized.")
+    except Exception as patch_err:
+        print(f"[Database Patch] Warning during migration patch execution: {str(patch_err)}")
 
-# ---------- FULL WEB INTERFACE LAYER ----------
+# Execute database structure verification and initialization safely
+try:
+    initialize_database()
+    patch_database_schema()  # Run the live schema update patch
+    try:
+        models.create_user("admin", "admin123", "superadmin")
+    except DuplicateEmailError:
+        pass
+except Exception as db_err:
+    print(f"Database core pipeline initializing warning: {str(db_err)}")
+
+# ---------- FLASK APPLICATION SETUP ----------
 app = Flask(__name__)
-app.secret_key = "sms_super_secret_key"  # Required for flash messages
+app.secret_key = os.environ.get("SECRET_KEY", "sms_super_secret_key_prod_123")
 
 HTML_LAYOUT = """
 <!DOCTYPE html>
@@ -61,7 +95,6 @@ HTML_LAYOUT = """
     </div>
 
     <div class="main-container">
-        <!-- LEFT SIDE: CONTROLS & FORMS -->
         <div class="sidebar">
             {% with messages = get_flashed_messages(with_categories=true) %}
               {% if messages %}
@@ -71,7 +104,6 @@ HTML_LAYOUT = """
               {% endif %}
             {% endwith %}
 
-            <!-- Onboard Tenant Panel -->
             <div class="card">
                 <h3>🏢 1. Institutional Tenancy Setup</h3>
                 <form action="/add-tenant" method="POST">
@@ -94,7 +126,6 @@ HTML_LAYOUT = """
                 </form>
             </div>
 
-            <!-- Add Student Form -->
             <div class="card">
                 <h3>👤 2. Add New Student Entry</h3>
                 <form action="/add-student" method="POST">
@@ -123,7 +154,6 @@ HTML_LAYOUT = """
             </div>
         </div>
 
-        <!-- RIGHT SIDE: SEARCH & LIVE DIRECTORY -->
         <div class="content-area">
             <div class="card">
                 <h3>🔍 Search & Filter Registry</h3>
@@ -207,11 +237,11 @@ def web_add_student():
             university_id=uni_id, college_id=col_id, department=dept,
             cgpa=float(cgpa) if cgpa else None
         )
-        flash("✔ Student Record added successfully to global registry!", "success")
+        flash("✔ Student Record added successfully!", "success")
     except DuplicateEmailError:
-        flash("✘ Error: A student with this email already exists.", "error")
+        flash("✘ Error: Email already exists.", "error")
     except Exception as e:
-        flash(f"✘ Error processing request: {str(e)}", "error")
+        flash(f"✘ Error: {str(e)}", "error")
         
     return redirect(url_for('home'))
 
@@ -219,7 +249,7 @@ def web_add_student():
 def web_delete_student(student_id):
     try:
         models.delete_student(int(student_id))
-        flash(f"✔ Student ID {student_id} successfully purged from database.", "success")
+        flash(f"✔ Student ID {student_id} deleted successfully.", "success")
     except Exception as e:
         flash(f"✘ Failed to delete record: {str(e)}", "error")
     return redirect(url_for('home'))
@@ -233,19 +263,16 @@ def web_add_tenant():
     try:
         if t_type == "uni":
             models.add_university(code, name)
-            flash(f"✔ University Node [{code}] successfully onboarded!", "success")
+            flash(f"✔ University Node [{code}] onboarded!", "success")
         else:
             models.add_college(university_id=1, college_code=code, college_name=name)
-            flash(f"✔ College Branch [{code}] mapped to default hierarchy!", "success")
+            flash(f"✔ College Branch [{code}] mapped!", "success")
     except Exception as e:
-        flash(f"✘ Institutional onboarding failed: {str(e)}", "error")
+        flash(f"✘ Onboarding failed: {str(e)}", "error")
         
     return redirect(url_for('home'))
 
+port = int(os.environ.get("PORT", 8000))
+
 if __name__ == "__main__":
-    if "PORT" in os.environ:
-        port = int(os.environ.get("PORT", 8000))
-        app.run(host="0.0.0.0", port=port)
-    else:
-        print("--> Running Local Web Server Hub. Open http://127.0.0.1:5000 in your browser")
-        app.run(debug=True)
+    app.run(host="0.0.0.0", port=port, debug=False)
