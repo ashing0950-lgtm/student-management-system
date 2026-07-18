@@ -183,7 +183,6 @@ def home():
     search_query = request.args.get('search', '').strip()
     try:
         if search_query:
-            # Trigger active search operation from models layer
             students = models.search_students(search_query)
         else:
             students = models.get_all_students()
@@ -191,7 +190,8 @@ def home():
         students = []
     return render_template_string(HTML_LAYOUT, students=students, search_query=search_query)
 
-@app.route('/add-student', method=['POST'])
+# FIX: Changed 'method' to 'methods'
+@app.route('/add-student', methods=['POST'])
 def web_add_student():
     first = request.form.get('first_name')
     last = request.form.get('last_name')
@@ -199,7 +199,6 @@ def web_add_student():
     dept = request.form.get('department')
     cgpa = request.form.get('cgpa')
     
-    # Defaults setting up for single tenant fallback
     uni_id = 1
     col_id = 1
     
@@ -226,7 +225,8 @@ def web_delete_student(student_id):
         flash(f"✘ Failed to delete record: {str(e)}", "error")
     return redirect(url_for('home'))
 
-@app.route('/add-tenant', method=['POST'])
+# FIX: Changed 'method' to 'methods'
+@app.route('/add-tenant', methods=['POST'])
 def web_add_tenant():
     t_type = request.form.get('tenant_type')
     code = request.form.get('code')
@@ -244,16 +244,10 @@ def web_add_tenant():
         
     return redirect(url_for('home'))
 
-# CLI Fallback main logic loop remains intact for terminal execution
-def main():
-    # Keep CLI logic context running if executed directly in local mode
-    print("--> CLI Mode Active. Run via python main.py inside local shell environments.")
-
 if __name__ == "__main__":
     if "PORT" in os.environ:
         port = int(os.environ.get("PORT", 8000))
         app.run(host="0.0.0.0", port=port)
     else:
-        # Local runner wrapper fallback triggers Flask locally for browser testing too!
         print("--> Running Local Web Server Hub. Open http://127.0.0.1:5000 in your browser")
         app.run(debug=True)
