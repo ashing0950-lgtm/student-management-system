@@ -6,7 +6,7 @@ Database connection configuration and initialization schema scripts.
 import sqlite3
 import os
 
-DB_NAME = "school.db"  # Agar aapka database file name alag hai toh yahan badal sakte hain
+DB_NAME = "database.db"  # Agar aapka database file name alag hai toh yahan badal sakte hain
 
 def get_connection():
     """Returns a secure sqlite3 connection object with row factory enabled."""
