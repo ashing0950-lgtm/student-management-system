@@ -1,0 +1,7 @@
+# Python bytecode cache
+__pycache__/
+*.pyc
+
+# Local Database file
+school.db
+school_db.sqlite
