@@ -1,8 +1,16 @@
+import os
 import sqlite3
 import hashlib
 
 def get_db_connection():
-    conn = sqlite3.connect('database.db')
+    # Render par '/data' naam ka folder hota hai jab hum disk attach karte hain
+    # Agar wo folder mila toh wahan save karega, nahi toh aapke computer par local folder mein
+    if os.path.exists('/data'):
+        db_path = '/data/database.db'
+    else:
+        db_path = 'database.db'
+        
+    conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     return conn
 
