@@ -1,18 +1,16 @@
 import sqlite3
 
-conn = sqlite3.connect('database.db')
-cursor = conn.cursor()
+def check_users():
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    try:
+        users = cursor.execute("SELECT * FROM users").fetchall()
+        print("--- Database Users ---")
+        for u in users:
+            print(f"ID: {u[0]}, Username: {u[1]}, Role: {u[3]}")
+    except Exception as e:
+        print(f"Error: {e}")
+    conn.close()
 
-# Naye colleges add kar rahe hain
-colleges_list = [
-    ('School of Engineering (CSE)',),
-    ('School of Management (MBA)',),
-    ('School of Computer Applications (BCA)',),
-    ('School of Pharmacy',)
-]
-
-cursor.executemany("INSERT OR IGNORE INTO colleges (college_name) VALUES (?)", colleges_list)
-
-conn.commit()
-conn.close()
-print("Naye Colleges add ho gaye hain!")
+if __name__ == "__main__":
+    check_users()

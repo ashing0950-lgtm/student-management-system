@@ -1,16 +1,3 @@
-# Python bytecode cache
+database.db
 __pycache__/
 *.pyc
-
-# Local Database file
-school.db
-school_db.sqlite
-
-# Python bytecode cache
-__pycache__/
-*.pyc
-
-# Local Database file
-school.db
-school_db.sqlite
-database.db  <-- Ye line add kar do
