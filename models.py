@@ -97,12 +97,15 @@ def update_student(student_id, full_name, email, age, cgpa, college, department,
 
 def add_student(full_name, email, age, cgpa, college, department, branch, username):
     conn = get_db_connection()
-    conn.execute('''INSERT INTO students 
+    cur = conn.cursor()
+    cur.execute('''INSERT INTO students 
                     (full_name, email, age, cgpa, college, department, branch, created_by) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)''', 
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)''', 
                  (full_name, email, age, cgpa, college, department, branch, username))
-    conn.commit()
-    conn.close()
+    
+    conn.commit()  # Data ko permanent save karega
+    cur.close()    # Cursor ko close karega (Taaki database freeze na ho)
+    conn.close()   # Connection ko band karega (Naye data ke liye space banayega)
 
 def delete_student(student_id):
     conn = get_db_connection()
