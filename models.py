@@ -3,20 +3,20 @@ import sqlite3
 import hashlib
 
 def get_db_connection():
-    # Render par '/data' naam ka folder hota hai jab hum disk attach karte hain
-    # Agar wo folder mila toh wahan save karega, nahi toh aapke computer par local folder mein
+    # Render par '/data' folder check karne ke liye, baki local computer ke liye
     if os.path.exists('/data'):
         db_path = '/data/database.db'
     else:
         db_path = 'database.db'
         
     conn = sqlite3.connect(db_path)
+    # Yeh line PostgreSQL ke DictCursor jaisa hi kaam karti hai (dict format mein data read karne ke liye)
     conn.row_factory = sqlite3.Row
     return conn
 
 def init_db():
     conn = get_db_connection()
-    # University column removed
+    # Students Table
     conn.execute('''CREATE TABLE IF NOT EXISTS students (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         full_name TEXT NOT NULL,
@@ -29,6 +29,7 @@ def init_db():
                         created_by TEXT NOT NULL
                     )''')
     
+    # Users Table
     conn.execute('''CREATE TABLE IF NOT EXISTS users (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         username TEXT UNIQUE NOT NULL,
@@ -65,11 +66,13 @@ def get_students(logged_in_user, search_val=None):
     query = "SELECT * FROM students"
     params = []
     
+    # Normal user sirf apna data dekhega, lekin 'ashish' sabka dekh sakega
     if logged_in_user.lower() != 'ashish':
         query += " WHERE created_by = ?"
         params.append(logged_in_user)
         
     if search_val:
+        # SQLite mein ILIKE nahi hota, generic LIKE case-insensitive hi hota hai
         if "WHERE" in query:
             query += " AND (full_name LIKE ? OR email LIKE ? OR college LIKE ?)"
         else:
@@ -86,6 +89,15 @@ def get_student_by_id(student_id):
     conn.close()
     return student
 
+def add_student(full_name, email, age, cgpa, college, department, branch, username):
+    conn = get_db_connection()
+    conn.execute('''INSERT INTO students 
+                    (full_name, email, age, cgpa, college, department, branch, created_by) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)''', 
+                 (full_name, email, age, cgpa, college, department, branch, username))
+    conn.commit()
+    conn.close()
+
 def update_student(student_id, full_name, email, age, cgpa, college, department, branch):
     conn = get_db_connection()
     conn.execute('''UPDATE students 
@@ -94,18 +106,6 @@ def update_student(student_id, full_name, email, age, cgpa, college, department,
                  (full_name, email, age, cgpa, college, department, branch, student_id))
     conn.commit()
     conn.close()
-
-def add_student(full_name, email, age, cgpa, college, department, branch, username):
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute('''INSERT INTO students 
-                    (full_name, email, age, cgpa, college, department, branch, created_by) 
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)''', 
-                 (full_name, email, age, cgpa, college, department, branch, username))
-    
-    conn.commit()  # Data ko permanent save karega
-    cur.close()    # Cursor ko close karega (Taaki database freeze na ho)
-    conn.close()   # Connection ko band karega (Naye data ke liye space banayega)
 
 def delete_student(student_id):
     conn = get_db_connection()

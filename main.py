@@ -4,6 +4,7 @@ import models
 app = Flask(__name__)
 app.secret_key = 'super-secret-key-student-portal-ashish-v3'
 
+# Server chalte hi DB initialize hoga
 models.init_db()
 
 # --- AUTH LAYOUTS ---
@@ -53,6 +54,7 @@ REGISTER_LAYOUT = """
         input { width: 93%; padding: 10px; margin: 10px 0; border: 1px solid #ced4da; border-radius: 4px; font-size: 14px; }
         .btn { width: 100%; padding: 10px; background-color: #198754; color: white; border: none; border-radius: 4px; font-size: 14px; cursor: pointer; font-weight: bold; }
         .link { display: block; margin-top: 15px; color: #6c757d; text-decoration: none; font-size: 13px; }
+        .flash-msg { color: #dc3545; font-size: 13px; margin-bottom: 10px; text-align: left; }
     </style>
 </head>
 <body>
@@ -60,9 +62,7 @@ REGISTER_LAYOUT = """
     <h2>📝 Register</h2>
     {% with messages = get_flashed_messages() %}
       {% if messages %}
-        {% for msg in messages %}
-          <div class="flash-msg" style="color: #dc3545; font-size:13px; text-align:left; margin-bottom:10px;">❌ {{ msg }}</div>
-        {% endfor %}
+        {% for msg in messages %}<div class="flash-msg">❌ {{ msg }}</div>{% endfor %}
       {% endif %}
     {% endwith %}
     <form method="POST">
@@ -76,7 +76,7 @@ REGISTER_LAYOUT = """
 </html>
 """
 
-# --- MAIN DASHBOARD LAYOUT (University Removed) ---
+# --- MAIN DASHBOARD LAYOUT ---
 HTML_LAYOUT = """
 <!DOCTYPE html>
 <html>
@@ -120,7 +120,7 @@ HTML_LAYOUT = """
 <div class="container">
     <div class="sidebar">
         <h3>{% if edit_student %}✏️ Edit Student{% else %}Add New Student{% endif %}</h3>
-        <form action="{% if edit_student %}/edit-student/{{ edit_student.id }}{% else %}/add-student{% endif %}" method="POST">
+        <form action="{% if edit_student %}/edit-student/{{ edit_student.id }}{% else %}/add_student{% endif %}" method="POST">
             <div class="form-group"><input type="text" name="full_name" placeholder="Full Name" value="{{ edit_student.full_name if edit_student else '' }}" required></div>
             <div class="form-group"><input type="email" name="email" placeholder="Email Address" value="{{ edit_student.email if edit_student else '' }}" required></div>
             <div class="form-group"><input type="number" name="age" placeholder="Age" value="{{ edit_student.age if edit_student else '' }}" required></div>
@@ -196,7 +196,10 @@ HTML_LAYOUT = """
 
 @app.route('/', methods=['GET', 'POST'])
 def home():
-    if 'user' not in session: return redirect(url_for('login'))
+    # Agar user logged in nahi hai, toh seedhe login page par bhejo
+    if 'user' not in session: 
+        return redirect(url_for('login'))
+        
     search_val = request.form.get('search') if request.method == 'POST' else None
     students = models.get_students(session['user'], search_val)
     return render_template_string(HTML_LAYOUT, students=students, search_val=search_val, username=session['user'], edit_student=None)
@@ -207,11 +210,13 @@ def login():
         username = request.form.get('username')
         password = request.form.get('password')
         user = models.authenticate_user(username, password)
+        
         if user:
             session['user'] = user['username']
-            return redirect(url_for('home'))
+            return redirect(url_for('home')) # Yahan home route par redirect kar diya
         else:
             flash("Invalid username or password")
+            
     return render_template_string(LOGIN_LAYOUT)
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -219,36 +224,40 @@ def register():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
+        
         if models.register_user(username, password):
-            return redirect(url_for('login'))
+            session['user'] = username
+            return redirect(url_for('home')) # Sahi redirection to main route
         else:
-            flash("Username already taken!")
+            flash("Username already exists! Kuch naya try karo.")
+            
     return render_template_string(REGISTER_LAYOUT)
 
-@app.route('/logout')
-def logout():
-    session.pop('user', None)
-    return redirect(url_for('login'))
+@app.route('/add_student', methods=['POST'])
+def add_student_route():
+    if 'user' not in session:
+        return redirect(url_for('login'))
+        
+    try:
+        full_name = request.form['full_name']
+        email = request.form['email']
+        age = int(request.form['age'])
+        cgpa = float(request.form['cgpa'])
+        college = request.form['college']
+        department = request.form['department']
+        branch = request.form['branch']
+        username = session['user']
 
-@app.route('/add-student', methods=['POST'])
-def web_add_student():
-    if 'user' not in session: return redirect(url_for('login'))
-    
-    f_name = request.form.get('full_name')
-    email = request.form.get('email')
-    age = request.form.get('age')
-    cgpa = request.form.get('cgpa')
-    clg = request.form.get('college')
-    dept = request.form.get('department')
-    branch = request.form.get('branch')
-    
-    if f_name and email and age and cgpa:
-        models.add_student(f_name, email, int(age), float(cgpa), clg, dept, branch, session['user'])
-    return redirect(url_for('home'))
+        models.add_student(full_name, email, age, cgpa, college, department, branch, username)
+        return redirect(url_for('home'))
+        
+    except Exception as e:
+        return f"Database Error: {str(e)}", 500
 
 @app.route('/edit-student/<int:student_id>', methods=['GET', 'POST'])
 def web_edit_student(student_id):
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: 
+        return redirect(url_for('login'))
     
     if request.method == 'POST':
         f_name = request.form.get('full_name')
@@ -269,9 +278,15 @@ def web_edit_student(student_id):
 
 @app.route('/delete-student/<int:student_id>')
 def web_delete_student(student_id):
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: 
+        return redirect(url_for('login'))
     models.delete_student(student_id)
     return redirect(url_for('home'))
 
+@app.route('/logout')
+def logout():
+    session.pop('user', None)
+    return redirect(url_for('login'))
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, use_reloader=False)
